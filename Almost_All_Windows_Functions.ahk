@@ -54,6 +54,17 @@ return
 ;;https://cedeq.com/enterpad/en/autohotkey/useful-ahk-scripts/multiple-clipboards
 ;;https://jacksautohotkeyblog.wordpress.com/2016/06/09/autohotkey-solutions-for-windows-clipboard-limitations-autohotkey-clipboard-tips/
 
+
+
+
+
+
+;; I'm seeing some excellent sounding scripts in here which i might wish to take for myself:
+;   https://github.com/func-github/AHK-Windows-Enhancement
+; oh just kidding, they are in the TO DO section... they don't actually exist...
+
+
+
 GetFromClipboard()
 { 
   ClipSaved := ClipboardAll ;Save the clipboard
@@ -75,7 +86,17 @@ GetFromClipboard()
 
 
 
+checkFullness()
+{
+; DriveSpaceFree, OutputVar, Z:\
+DriveSpaceFree, OutputVar, \\10.20.0.27\Users
+If (OutputVar < 1000000)
+	{
+	msgbox, Whonnock has only %OutputVar% Megabytes remaining
+	
+	}
 
+}
 
 
 /*
@@ -133,7 +154,11 @@ Return, xxOutputVar
 */
 
 
-;this is where filemover() used to be. I moved it to its own script, since using it would prevent all other scripts from running, until the file was completely moved.
+;=============
+
+;this is where filemover() used to be. I moved it to its own script, since using it would prevent all other scripts from running, until the file was completely moved. lolol.
+
+;=============
 
 
 search(){
@@ -141,12 +166,12 @@ if winactive("ahk_exe Adobe Premiere Pro.exe")
 	{
 	if IsFunc("effectsPanelType") {
 	Func := Func("effectsPanelType")
-	RetVal := Func.Call(directory,"") 
+	RetVal := Func.Call(directory,"")
+	;;I'm doing it in this weird way just in case the function is not available -- this means it won't screw anything up.
 	}
 	;effectsPanelType("") ;set to macro key G1 on my logitech G15 keyboard. 
 	
-	;This just CLEARS the effects panel search bar so that you can type something in.
-	;previously was ^+0
+	;This just CLEARS the effects panel search bar and selects it so that you can type something in yourself. Or maybe it merely highlights what it already there -- whatever.
 	}
 else if winactive("ahk_exe notepad++.exe")
 	sendinput ^f
@@ -159,6 +184,62 @@ else if winactive("ahk_class CabinetWClass")
 }
 
 
+;++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+;This friggin beautiful code is from this thread:
+;https://autohotkey.com/board/topic/121208-windows-explorer-get-folder-path/?p=687189
+;another version of this function exists in filemover.ahk , but i think it's not used at all, lol.
+
+Explorer_GetSelection(hwnd="") {
+	WinGet, process, processName, % "ahk_id" hwnd := hwnd? hwnd:WinExist("A")
+	WinGetClass class, ahk_id %hwnd%
+	if (process = "explorer.exe")
+		if (class ~= "Progman|WorkerW") {
+			;;if you're on the desktop
+			ControlGet, files, List, Selected Col1, SysListView321, ahk_class %class%
+			Loop, Parse, files, `n, `r
+			ToReturn .= A_Desktop "\" A_LoopField "`n"
+	} else if (class ~= "(Cabinet|Explore)WClass") {
+		for window in ComObjCreate("Shell.Application").Windows
+			if (window.hwnd==hwnd)
+				sel := window.Document.SelectedItems
+		for item in sel
+			ToReturn .= item.path "`n"
+	}
+return Trim(ToReturn,"`n")
+}
+; ; ;How to call the above function
+; ; F12::
+; ; pathAndName := Explorer_GetSelection()
+; ; ;SplitPath, pathAndName, fn
+; ; SplitPath, pathAndName, nameOnly ,thePath
+; ; MsgBox % "FileName :`t" nameOnly "`nPath :`t" thePath "`nFullName :`t" pathAndName 
+; ; clipboard = % thePath
+; ; SoundBeep, 500, 200
+; ; return
+
+;++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+;This one does not require you to select an item in the folder in order to work! Unfortunately, it does NOT work on Save As dialogs for whatever reason.
+;; code was gotten from here https://autohotkey.com/board/topic/121208-windows-explorer-get-folder-path/?p=687189
+;; and here https://www.autohotkey.com/boards/viewtopic.php?p=28751#p28751
+Explorer_GetPath(hwnd="") {
+	WinGet, process, processName, % "ahk_id" hwnd := hwnd? hwnd:WinExist("A")
+	WinGetClass class, ahk_id %hwnd%
+	if (process = "explorer.exe")
+		if (class ~= "Progman|WorkerW") {
+			;;if you're on the desktop
+			ControlGet, files, List, Selected Col1, SysListView321, ahk_class %class%
+			Loop, Parse, files, `n, `r
+			ToReturn .= A_Desktop "\" A_LoopField "`n"
+	} else if (class ~= "(Cabinet|Explore)WClass") {
+		for window in ComObjCreate("Shell.Application").Windows
+			if (window.hwnd==hwnd)
+				lePath := window.Document.Folder.Self.Path
+	}
+return lePath
+}
+
+;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #IfWinActive
 
@@ -170,11 +251,16 @@ SetTitleMatchMode Slow
 WinGet, f_window_id, ID, A
 WinGetClass, f_class, ahk_id %f_window_id%
 ;;msgbox,,,%f_class%, 1
-if f_class in ExploreWClass,CabinetWClass ; if the window class is an Explorer window of either kind.
+if f_class in ExploreWClass,CabinetWClass ;;,#32770 ; if the window class is an Explorer window of either kind.
 	{
-	; WinGetTitle, Title, ahk_class CabinetWClass
-	WinGetTitle, title, ahk_id %f_window_id% ;super lame way to do this, does not always work.
-	;msgbox, address is `n%title%
+	;;; WinGetTitle, Title, ahk_class CabinetWClass
+	;WinGetTitle, title, ahk_id %f_window_id% ;super lame way to do this, does not always work. ;;update -- this is now mercifully obsolete!
+	
+	thePath := Explorer_GetPath()
+	title = % thePath
+	
+	;msgbox, the address is `n`n%title%
+
 	;sorry, I tried to NOT have to refer to these folder paths directly, but it always failed spectacularly:
 	FileDelete, C:\AHK\2nd-keyboard\Taran's_Windows_Mods\SavedExplorerAddress.txt
 	FileAppend, %title% , C:\AHK\2nd-keyboard\Taran's_Windows_Mods\SavedExplorerAddress.txt
@@ -183,7 +269,7 @@ if f_class in ExploreWClass,CabinetWClass ; if the window class is an Explorer w
 	msgbox, , , %title%`n`nwas saved as root, 0.3
 	}
 else
-	msgbox,,, this is not an explorer window you chump,0.5
+	msgbox,,, this is PROBABLY not an explorer window you chump,0.5
 ;for some reason, after this script runs, it sometimes activates the last active window. It doesn't make any sense...
 }
 ;for further reading:
@@ -339,7 +425,7 @@ if IsFunc("Keyshower")
 }
 
 
-;-------The below script origninally from: https://autohotkey.com/board/topic/102127-navigating-explorer-directories/
+;-------The below script originally from: https://autohotkey.com/board/topic/102127-navigating-explorer-directories/
 ; ; Hotkeys 1 & 2
 ; 1::NavRun("C:\")
 ; 2::NavRun(A_MyDocuments)
@@ -360,7 +446,7 @@ NavRun(Path) {
     else
         Run, % Path
 }
-;--------The above script origninally from: https://autohotkey.com/board/topic/102127-navigating-explorer-directories/
+;--------The above script originally from: https://autohotkey.com/board/topic/102127-navigating-explorer-directories/
 
 
 
@@ -389,11 +475,12 @@ NavRun(Path) {
 ;I got MOST of this code from https://autohotkey.com/docs/scripts/FavoriteFolders.htm
 ;and modified it to work with any given keypress, rather than middle mouse click as it had before.
 
-;NEED to include this too: file locator modified Explorer window with shitty edit2 control
+;<<<<< i don't remember what the text below is talking about
+;NEED to include this too: file locater modified Explorer window with shitty edit2 control
 ;Locate File '\\?\Z:\Linus\1. Linus Tech Tips\Pending\Maxine Settings Computer\Delivery\Maxine Settings Computer rc3.mov'
 ;ahk_class #32770
 ;ahk_exe Adobe Premiere Pro.exe
-;
+; >>>>>>>> idk what that was.
 
 ;;;NEEDED: must not get address by looking at title text, it is unreliable. if you search for a thing for example, it will open a new window. this may or may not be a bad thing... also i can have it clear the search - that WOULD be bad. must do more experiments with this one...
 InstantExplorer(f_path,pleasePrepend := 0)
@@ -404,7 +491,7 @@ send {SC0E8} ;scan code of an unassigned key. This is needed to prevent the item
 
 ;msgbox, hello
 
-if pleasePrepend = 1 ;i forget what this is even for...
+if pleasePrepend = 1 ;i think this is for the changeable stream deck folder shortcuts
 	{
 	FileRead, SavedExplorerAddress, C:\AHK\2nd-keyboard\Taran's_Windows_Mods\SavedExplorerAddress.txt
 	;msgbox, current f_path is %f_path%
@@ -412,25 +499,61 @@ if pleasePrepend = 1 ;i forget what this is even for...
 	;msgbox, new f_path is %f_path%
 	;SUPER IMPORTANT NOTE - you must have explorer show the entire path in the title bar, or this doesn't work. I do need a better way to get that information. Something DLL based or whatever.
 	}
-;NOTE TO FUTURE TARAN: for Keyshower, put code here to find the first / and remove the string before it. otherwise you can't see the final folder name
+;NOTE TO FUTURE TARAN: for Keyshower, put code here to find the first \ and remove the string before it. otherwise you can't see the FULL final folder name because it gets cropped off
 ;Keyshower(f_path,"InstExplor")
 if IsFunc("Keyshower") {
 	Func := Func("Keyshower")
 	RetVal := Func.Call(f_path,"InstExplor") 
 }
 
-;;;SUPER IMPORTANT: YOU NEED TO GO INTO FOLDER OPTIONS > VIEW > AND CHECK "DISPLAY THE FULL PATH IN THE TITLE BAR" OR THIS WON'T WORK.
+;;;SUPER IMPORTANT: YOU NEED TO GO INTO WINDOWS' FOLDER OPTIONS > VIEW > AND CHECK "DISPLAY THE FULL PATH IN THE TITLE BAR" OR THIS WON'T WORK.
+;;;UPDATE: THE INSTRUCTION ABOVE MIGHT BE OBSOLETE NOW, I'VE FIGURED OUT A BETTER WAY TO DO THIS SHIT
+
+
+instantExplorerTryAgain:
 
 if !FileExist(f_path)
 {
-    MsgBox,,, %f_path%`nNo such path exists.,1.7
-	GOTO, instantExplorerEnd
+	;MsgBox,,, %f_path%`nNo such path exists`, but we will go down in folders until it does.,1.0
+	
+	if InStr(f_path, "\"){
+	
+		FoundPos := InStr(f_path, "\", , StartingPos := 0, Occurrence := 1)
+		;msgbox % FoundPos
+		
+		Length := StrLen(f_path)
+		
+		;StringLeft, OutputVar, InputVar, Count
+		
+		trimThis := Length - FoundPos
+		
+		;msgbox % trimThis
+		
+		NewString := SubStr(f_path, 1, FoundPos-1)
+		;msgbox, NewString is %NewString%
+		f_path := NewString
+		GOTO, instantExplorerTryAgain
+		;oh my god this code is so sloppy, it's great. And this is like, one of my best ever functions. I'm not even kidding. I use it like 20x an hour.
+	}
+	else
+	{
+		MsgBox,,, %f_path%`n`nNo such path exists.,1.0
+		GOTO, instantExplorerEnd
+		
+	}
 }
 
-f_path := """" . f_path . """" ;this adds quotation marks around everything so that it works as a string, not a variable.
-;msgbox, f_path is now finally %f_path%
-;SoundBeep, 900, 400 ;this is dumb because you cant change the volume, or tell it NOT to wait while the sound plays...
+f_path = %f_path%\ ;;THIS ADDS A \ AT THE VERY END OF THE FILE PATH, FOR THE SAKE OF OLD-STYLE SAVE AS DIALOUGE BOXES WHICH REQUIRE THEM IN ORDER TO UPDATE THE FOLDER PATH WHEN IT IS INSERTED INTO Edit1.
 
+;msgbox, f_path is currently %f_path% ;just debugging as usual
+
+f_path := """" . f_path . """" ;this adds quotation marks around everything so that it works as a string, not a variable. 
+
+;but also, the old style still dopesn't like the quotation marks, and I'm not sure how to detect it since i know almost nothing about it. ho hum. But it does have ClassNN:	SysListView321 which MAYBE i could use with this code https://autohotkey.com/board/topic/9362-detect-opensave-dialog/ but i dont know. saving this for later.
+
+;msgbox, f_path is now finally %f_path%
+
+;SoundBeep, 900, 400 ;this is dumb because you cant change the volume, or tell it NOT to wait while the sound plays...
 
 ; These first few variables are set here and used by f_OpenFavorite:
 WinGet, f_window_id, ID, A
@@ -456,9 +579,9 @@ if f_AlwaysShowMenu = n  ; The menu should be shown only selectively.
 ;Menu, Favorites, show
 */
 
-; msgbox, A_ThisMenuItemPos %A_ThisMenuItemPos%
-; msgbox, A_ThisMenuItem %A_ThisMenuItem%
-; msgbox, A_ThisMenu %A_ThisMenu%
+;msgbox, A_ThisMenuItemPos %A_ThisMenuItemPos%
+;msgbox, A_ThisMenuItem %A_ThisMenuItem%
+;msgbox, A_ThisMenu %A_ThisMenu%
 
 ;;StringTrimLeft, f_path, f_path%A_ThisMenuItemPos%, 0
 ; msgbox, f_path: %f_path%`n f_class:  %f_class%`n f_Edit1Pos:  %f_Edit1Pos%
@@ -472,23 +595,63 @@ if f_path =
 	return
 if f_class = #32770    ; It's a dialog.
 	{
-	;msgbox, f_title is %f_title%
-	; IF f_title is NOT "export settings," with the exe "premiere pro.exe"
-	;go to the end or do something else, since you are in Premiere's export media dialouge box... which has the same #23770 classNN for some reason...
-	;msgbox,,,test code E1,0.5
-	if f_title = Export Settings
+
+	if WinActive("ahk_exe waifu2x-caffe.exe")
 		{
-		msgbox,,,you are in Premiere's export window, but NOT in the "Save as" inside of THAT window. no bueno, 1
-		GOTO, instantExplorerEnd 
-		;return ;no, I don't want to return because i still want to open an explorer window.
+		tooltip, you are inside of Waifu2x
+		
+		GOTO, ending2
+		;this will open an explorer window rather than trying to change waifu2x's input path as it otherwise would.
 		}
+	
 	if WinActive("ahk_exe Adobe Premiere Pro.exe")
 		{
-		tooltip,you are inside of premieres save as thingy
-		if f_title = Save As or f_title = Save Project ;IDK if this OR is properly nested....
+		tooltip, you are inside of premiere
+		
+		if (f_title = "Export Settings") or if (f_title = "Link Media")
 			{
-			ControlFocus, Edit1, ahk_id %f_window_id% ;this is really important.... it doesn't work if you don't do this...
-			msgbox,,,you are here,0.5
+			msgbox,,,you are in Premiere's export window or link media window, but NOT in the "Save as" inside of THAT window. no bueno, 1
+			GOTO, instantExplorerEnd 
+			;return ;no, I don't want to return because i still want to open an explorer window.
+			}
+		
+		
+		If InStr(f_title, "Link Media to") ;Note that you must have "use media browser to locate files" UNCHECKED because it is GARBAGE.
+			{
+			tooltip, you are inside Premieres relinker.
+			; This requires custom code, because the EditX boxes are different:
+			; last path   = Edit1
+			; filename    = Edit2
+			; address bar = Edit3
+
+			ControlFocus, Edit2, ahk_id %f_window_id% 
+
+			tooltip, you are inside the link media thingy
+			sleep 1
+			
+			WinActivate ahk_id %f_window_id%
+			sleep 1
+			ControlGetText, f_text, Edit2, ahk_id %f_window_id%
+			sleep 1
+			ControlSetText, Edit2, %f_path%, ahk_id %f_window_id%
+			ControlSend, Edit2, +{Enter}, ahk_id %f_window_id%
+			Sleep, 100  ; It needs extra time on some dialogs or in some cases.
+			ControlSetText, Edit2, %f_text%, ahk_id %f_window_id%
+			;msgbox, AFTER:`n f_path: %f_path%`n f_class:  %f_class%`n f_Edit1Pos:  %f_Edit1Pos%
+			
+			tooltip,
+			return		
+			}
+
+		if (f_title = "Save As") or if (f_title = "Save Project")
+			{
+			;;;ControlGetPos, f_Edit1Pos, f_Edit1PosY,,, Edit1, ahk_id %f_window_id%
+			;ControlFocus, Edit2, ahk_id %f_window_id% ;we know that Edit2 is the address bar in this case. So there's no need to use Edit1 and then swap back in the filename.
+			
+			ControlFocus, Edit1, ahk_id %f_window_id% 
+			;msgbox,,,you are hereee,0.5
+			tooltip, you are here
+			sleep 1
 			;tippy2("DIALOUGE WITH PREMIERE'S Edit1`n`nLE controlfocus of Edit1 for f_window_id was just engaged.", 2000)
 			; msgbox, is it in focus?
 			; MouseMove, f_Edit1Pos, f_Edit1PosY, 0
@@ -504,23 +667,23 @@ if f_class = #32770    ; It's a dialog.
 			; Retrieve any filename that might already be in the field so
 			; that it can be restored after the switch to the new folder:
 			ControlGetText, f_text, Edit1, ahk_id %f_window_id%
-			
+			sleep 1
 			ControlSetText, Edit1, %f_path%, ahk_id %f_window_id%
-			ControlSend, Edit1, {Enter}, ahk_id %f_window_id%
+			ControlSend, Edit1, +{Enter}, ahk_id %f_window_id%
 			Sleep, 100  ; It needs extra time on some dialogs or in some cases.
 			ControlSetText, Edit1, %f_text%, ahk_id %f_window_id%
 			;msgbox, AFTER:`n f_path: %f_path%`n f_class:  %f_class%`n f_Edit1Pos:  %f_Edit1Pos%
 			
 			tooltip,
 			return
+			tooltip, do you make it this far
+			tooltip, the answer is no. the RETURN ends it properly
+			GOTO, instantExplorerEnd 
+			;But i have the GOTO just in case, hahahaha
 			}
 		}
-	;if WinActive("ahk_exe Adobe Premiere Pro.exe") and f_title = Save Project
-	; Save As
-	;OR Save Project
-; ahk_class #32770
-; ahk_exe Adobe Premiere Pro.exe
-	
+
+	; stuff beyond here is NOT in premiere
 	if f_Edit1Pos <>   ; And it has an Edit1 control.
 		{
 
@@ -541,15 +704,16 @@ if f_class = #32770    ; It's a dialog.
 		; Retrieve any filename that might already be in the field so
 		; that it can be restored after the switch to the new folder:
 		ControlGetText, f_text, Edit1, ahk_id %f_window_id%
-		
+		sleep 2
 		ControlSetText, Edit1, %f_path%, ahk_id %f_window_id%
+		sleep 3
 		ControlSend, Edit1, {Enter}, ahk_id %f_window_id%
 		Sleep, 100  ; It needs extra time on some dialogs or in some cases.
 		
 		;now RESTORE the filename in that text field. I don't like doing it this way...
 		ControlSetText, Edit1, %f_text%, ahk_id %f_window_id%
 		;msgbox, AFTER:`n f_path: %f_path%`n f_class:  %f_class%`n f_Edit1Pos:  %f_Edit1Pos%
-		
+		sleep 2
 		ControlFocus, DirectUIHWND2, ahk_id %f_window_id% ;to try to get the focus back into the center area, so you can now type letters and have it go to a file or fodler, rather than try to SEARCH or try to change the FILE NAME by default.
 		return
 		}
@@ -610,7 +774,7 @@ ending2:
 ;	msgbox,,,Directory does not exist,1
 
 instantExplorerEnd:
-
+tooltip,
 }
 ;end of instantexplorer()
 
@@ -655,6 +819,7 @@ if savedCLASS = ahk_class Notepad++
 		Send ^{tab}
 		}
 	}
+
 ;msgbox,,,got to here,0.5
 windowSwitcher(savedCLASS, savedEXE)
 }
@@ -689,7 +854,8 @@ if WinActive("ahk_class OpusApp")
 ;macro key 16 on my logitech G15 keyboard. It will activate firefox,, and if firefox is already activated, it will go to the next window in firefox.
 
 switchToFirefox(){
-sleep 12
+sleep 16 ;So this is here because I think that with the way I have iCUE set up, it won't always get to the Right CTRL UP event because it's no longer on that profile, you know what I mean? So this gives it a bit more time to do that.
+
 sendinput, {SC0E8} ;scan code of an unassigned key. Do I NEED this?
 
 
@@ -710,13 +876,14 @@ else
 	{
 	;WinRestore ahk_exe firefox.exe
 	;WinActivate ahk_exe firefox.exe ;was winactivatebottom before...
-	WinActivatebottom ahk_class MozillaWindowClass ;was winactivatebottom before...
+	;WinActivatebottom ahk_class MozillaWindowClass ;was winactivatebottom before...
+	WinActivate ahk_class MozillaWindowClass ;was winactivatebottom before...
 	;sometimes winactivate is not enough. the window is brought to the foreground, but not put into FOCUS.
 	;the below code should fix that.
 	WinGet, hWnd, ID, ahk_class MozillaWindowClass
 	DllCall("SetForegroundWindow", UInt, hWnd) 
 	}
-sleep 1
+sleep 2
 ;now to unstick any potentially stuck modifier keys
 ; KeyList := "Shift|Rctrl|alt"
 ; Loop, Parse, KeyList, |
@@ -725,7 +892,8 @@ sleep 1
 		; Send % "{" A_Loopfield " Up}"
 	; }
 
-send, {Rctrl up}
+send, {Rctrl up} ;This SHOULD work, but i think it doesn't because the RCTRL event is still coming from the keyboard itself. I need to make something that will send RCTRL up and double click that shit and then see if it makes any difference at all next time. hmm.
+;okay, I've created RCTRL UP.AHK to test this. Just doble clicking on it will send a RCTRL UP event. This is important because it's not being done through the keyboard. Will try that next time this shizz happens.
 send, {Lctrl up}
 
 }
@@ -765,6 +933,12 @@ if WinActive("ahk_exe explorer.exe")
 	GroupActivate, taranexplorers, r
 else
 	WinActivate ahk_class CabinetWClass ;you have to use WinActivatebottom if you didn't create a window group.
+
+;maybe need to unstick modifiers
+sleep 2
+send, {Rctrl up}
+send, {Lctrl up}
+;IDK if that even works...
 }
 
 ; ;trying to activate these windows in reverse order from the above. it does not work.
@@ -784,6 +958,9 @@ else
 closeAllExplorers()
 {
 WinClose,ahk_group taranexplorers
+; i want to improve this so that the bottom (most recently active) explorer window does NOT close. IDK how to do that yet though.
+; https://stackoverflow.com/questions/39601787/close-windows-explorer-window-with-auto-hotkey
+; https://autohotkey.com/board/topic/88648-close-all-explorer-windows/
 }
 
 
@@ -808,6 +985,12 @@ if WinActive("ahk_class Premiere Pro")
 	}
 else
 	WinActivate ahk_class Premiere Pro
+
+;maybe need to unstick modifiers
+sleep 2
+send, {Rctrl up}
+send, {Lctrl up}
+;IDK if that even works...
 }
 
 
@@ -827,6 +1010,11 @@ Process, Exist, WINWORD.EXE
 	else
 		WinActivate ahk_class OpusApp
 	}
+;maybe need to unstick modifiers
+sleep 2
+send, {Rctrl up}
+send, {Lctrl up}
+;IDK if that even works...
 }
 
 
@@ -857,6 +1045,11 @@ if WinActive("ahk_exe chrome.exe")
 	Sendinput ^{tab}
 else
 	WinActivate ahk_exe chrome.exe
+;maybe need to unstick modifiers
+sleep 2
+send, {Rctrl up}
+send, {Lctrl up}
+;IDK if that even works...
 }
 
 switchToStreamDeck(){
@@ -874,11 +1067,21 @@ else
 #IfWinActive
 windowSwitcher(theClass, theEXE)
 {
+;if savedCLASS = Chrome_WidgetWin_1
+if theCLASS = Chrome_WidgetWin_1
+	{
+	msgbox, it is a chrome thingy
+	if theEXE = Teams.exe
+		WinActivate %theEXE%
+		goto, switchEND
+	}
+
 ;msgbox,,, switching to `nsavedCLASS = %theClass% `nsavedEXE = %theEXE%, 0.5
 IfWinNotExist, %theClass%
 	Run, % theEXE
 if not WinActive(theClass)
 	WinActivate %theClass%
+switchEND:
 }
 
 ;;;EXPLORERSORT.AHK CODE IS BELOW
@@ -1149,6 +1352,26 @@ sortByDate()
 	isp := isb := isv := ifv2 := icm := ""
 }
 
+sortByDateDescending()
+{
+	WinGet, hWnd, ID, A
+	oWin := JEE_ExpWinGetObj(hWnd)
+	JEE_ExpGetInterfaces(oWin, isp, isb, isv, ifv2, icm)
+	;above must load up the complex structures with black magic
+	;clipboard:=JEE_IFV2GetSortColumns(ifv2)
+	;System.DateModified -1
+	;System.DateModified 1
+	;;if RegExMatch(JEE_IFV2GetSortColumns(ifv2),"System.DateModified ?:-1")
+	;regexesllwork but not straightforward
+	curCol:=JEE_IFV2GetSortColumns(ifv2)
+	;dont call it twice - maybe you wouldnt need to but im not seeing a superb way to avoid it below
+	
+	vList := "System.DateModified -1" ;Date modified descending 
+	
+	JEE_IFV2SetSortColumns(ifv2, vList)
+	isp := isb := isv := ifv2 := icm := ""
+}
+
 sortByType()
 {
 	WinGet, hWnd, ID, A
@@ -1402,7 +1625,7 @@ ExplorerViewChange_ICONS(explorerHwnd)
 ; Script to activate any given firefox tab...
 ;This requires the ACC library, which you have to install into AutoHotKey (it's pretty easy, just scroll to the top of this page and follow the instructions.)
 ;https://autohotkey.com/boards/viewtopic.php?f=6&t=26947&p=139114#p139114
-; calling the funciton looks like this: 
+; calling the function looks like this: 
 ^!+numpad2::JEE_FirefoxFocusTabByName(hWnd, "Linus Media Group Inc. Mail")
 ;==================================================
 
@@ -1464,14 +1687,40 @@ return vOutput
 
 ;==================================================
 
-gotofiretab(name,URL)
+#ifwinactive
++F12::
+tooltip, here we goooo
+Title := GetTitle("https://calendar.google.com/calendar/b/0/r")
+Title := GetTitle("https://www.google.com/")
+Title := GetTitle("https://www.autohotkey.com/")
+msgbox, title is %title%
+
+;gotofiretab("Calendar - April 2019","https://calendar.google.com/calendar/b/0/r") 
+return
+
+
+;===
+
+GetTitle(URL) {
+    WinHttp := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+    WinHttp.Open("GET", URL, false)
+    
+    WinHttp.Send()
+    
+    RegexMatch(WinHttp.ResponseText, "<title>\K.*(?=<\/title>)", Title)
+    return Title
+}
+
+
+gotofiretab(name,URL,alternativeName := "hgflasdkhsf")
 {
 ;WinActivate ahk_exe firefox.exe ;I think this is unreilable because it only makes sure the applicaiton is RUNNING, not necessarily that it's ACTIVE.
 WinActivate ahk_class MozillaWindowClass ;so i use the CLASS instead.
 ;tooltip, FIRETAB
 sleep 15
 WinGet, the_current_id, ID, A
-vRet := JEE_FirefoxFocusTabByName(the_current_id, name)
+vRet := JEE_FirefoxFocusTabByName(the_current_id, name, alternativeName)
+;The alternative name is for Gmail which sometimes flashes "MEssage from Nick Light" or whatever. It has to be nonsense text so it won't activate any other tab in cases where it's not needed.
 ;tooltip, vret is %vRet%
 if (vRet = 0)
 	run, firefox.exe %URL%
@@ -1479,39 +1728,19 @@ sleep 100
 tooltip,
 }
 
+;
+;==================================================
 
 
-JEE_FirefoxFocusTabByNum(hWnd, vNum)
+
+ 
+JEE_FirefoxFocusTabByName(hWnd, vTitle, vTitle2 := "hasfklskh", vNum:=1)
 {
 ;TARAN NOTE: Using a tab NAME is somewhat unstable. Gmail for example will dynamically change the name to "Message from Nick Light" or whatever else. So really, I need to get the tab URL. will have to poke around ACC viewer to see where that information is...
 ; for future URL getting: https://autohotkey.com/boards/viewtopic.php?t=3702
 ; better: https://autohotkey.com/boards/viewtopic.php?f=6&t=26947&p=139114#p139114
 
 
-
-oAcc := Acc_Get("Object", "4", 0, "ahk_id " hWnd)
-vRet := 0
-for each, oChild in Acc_Children(oAcc)
-	if (oChild.accName(0) == "Browser tabs")
-	{
-		oAcc := Acc_Children(oChild)[1], vRet := 1
-		break
-	}
-if !vRet || !Acc_Children(oAcc)[vNum]
-	vNum := ""
-else
-	Acc_Children(oAcc)[vNum].accDoDefaultAction(0)
-oAcc := oChild := ""
-return vNum
-}
-
-;==================================================
-
-
-
- 
-JEE_FirefoxFocusTabByName(hWnd, vTitle, vNum=1)
-{
 oAcc := Acc_Get("Object", "4", 0, "ahk_id " hWnd)
 vRet := 0
 for each, oChild in Acc_Children(oAcc)
@@ -1534,6 +1763,8 @@ for each, oChild in Acc_Children(oAcc)
 		; vCount++
 	If InStr(vTabText, vTitle) ;TARAN NOTE: I changed this line so that only a PARTIAL tab title match is required.
 		vCount++
+	If InStr(vTabText, vTitle2)
+		vCount++
 	if (vCount = vNum)
 	{
 		oChild.accDoDefaultAction(0), vRet := A_Index
@@ -1549,7 +1780,28 @@ return vRet
 
 
 
+JEE_FirefoxFocusTabByNum(hWnd, vNum)
+{
 
+
+oAcc := Acc_Get("Object", "4", 0, "ahk_id " hWnd)
+vRet := 0
+for each, oChild in Acc_Children(oAcc)
+	if (oChild.accName(0) == "Browser tabs")
+	{
+		oAcc := Acc_Children(oChild)[1], vRet := 1
+		break
+	}
+if !vRet || !Acc_Children(oAcc)[vNum]
+	vNum := ""
+else
+	Acc_Children(oAcc)[vNum].accDoDefaultAction(0)
+oAcc := oChild := ""
+return vNum
+}
+
+
+;==================================================
 
 
 
